@@ -18,28 +18,28 @@ class Open3dConan(ConanFile):
         "eigen/[>=3.3.4]@camposs/stable",
         "glfw/[>=3.2.1]@camposs/stable",
         "pybind11/[>=2.2.1]@camposs/stable",
+        "glew/[>=2.1.0]@camposs/stable",
         )
 
     options = {
         "shared": [True, False],
         "python": "ANY",
-        "opengl_extension_wrapper": ["glew", "glad"],
         }
 
     default_options = (
         "shared=True",
         "python=python3",
-        "opengl_extension_wrapper=glew",
         )
 
-    # all sources are deployed with the package
-    exports_sources = "docs/*", "util/*", "src/*",  "3rdparty/*",  "examples/*", "CMakeLists.txt"
+    scm = {
+        "type": "git",
+        "subfolder": "open3d",
+        "url": "https://github.com/IntelVCL/Open3D.git",
+        "revision": "v%s" % version,
+     }
 
-    def requirements(self):
-        if self.options.opengl_extension_wrapper == 'glad':
-            self.requires("glad/[>=0.1.23]@camposs/stable")
-        elif self.options.opengl_extension_wrapper == 'glew':
-            self.requires("glew/[>=2.1.0]@camposs/stable")
+
+    exports_sources = "CMakeLists.txt"
 
     def build(self):
         cmake = CMake(self)

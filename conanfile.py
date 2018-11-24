@@ -23,7 +23,6 @@ class Open3dConan(ConanFile):
 
     options = {
         "shared": [True, False],
-        "python": "ANY",
         }
 
     default_options = (

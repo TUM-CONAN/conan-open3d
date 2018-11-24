@@ -19,6 +19,6 @@ class TBBTestConan(ConanFile):
     def test(self):
         os.chdir("bin")
         if self.settings.os != "Windows":
-            self.run("LD_LIBRARY_PATH=./ ./example")
+            self.run("%sLD_LIBRARY_PATH=./ ./example" % ("DY" if self.settings.os == "Macos" else ""))
         else:
             self.run(".%sexample" % os.sep)

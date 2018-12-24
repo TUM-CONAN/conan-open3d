@@ -62,8 +62,9 @@ class Open3dConan(ConanFile):
 
     def package(self):
         base_dir = os.path.join(self.package_folder, "include", "open3d_conan")
-        for name in os.listdir(base_dir):
-            shutil.move(os.path.join(base_dir, name), os.path.join(self.package_folder, "include"))
+        if os.path.exists(base_dir):
+            for name in os.listdir(base_dir):
+                shutil.move(os.path.join(base_dir, name), os.path.join(self.package_folder, "include"))
 
         self.copy(pattern="*", src="bin", dst="./bin")
 

@@ -1,6 +1,6 @@
 env:
    global:
-     - CONAN_REFERENCE: "open3d/0.4.0"
+     - CONAN_REFERENCE: "open3d/0.5.0"
      - CONAN_USERNAME: "camposs"
      - CONAN_LOGIN_USERNAME: "camposs"
      - CONAN_CHANNEL: "stable"

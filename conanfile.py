@@ -5,14 +5,14 @@ import shutil
 
 
 class Open3dConan(ConanFile):
-    version = "0.4.0"
+    version = "0.5.0"
 
     name = "open3d"
     license = "https://github.com/IntelVCL/Open3D/raw/master/LICENSE"
     description = "Open3D: A Modern Library for 3D Data Processing http://www.open3d.org (Forked for use with Ubitrack"
     url = "https://github.com/ulricheck/Open3D"
     settings = "os", "compiler", "build_type", "arch"
-    generators = "cmake"
+    generators = "pkg_config", "cmake"
     short_paths = True
 
     requires = (
@@ -34,10 +34,14 @@ class Open3dConan(ConanFile):
         "subfolder": "open3d",
         "url": "https://github.com/IntelVCL/Open3D.git",
         "revision": "v%s" % version,
+        "submodule": "recursive",
      }
 
-
     exports_sources = "CMakeLists.txt",
+
+    def configure(self):
+        if self.options.shared:
+            self.options['glew'].shared = True
 
     def build(self):
         cmake = CMake(self)

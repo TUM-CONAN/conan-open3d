@@ -17,6 +17,7 @@ class Open3dConan(ConanFile):
 
     requires = (
         "eigen/[>=3.3.4]@camposs/stable",
+        "glfw/[>=3.2.1]@camposs/stable",
         )
 
     options = {
@@ -41,13 +42,11 @@ class Open3dConan(ConanFile):
 
     def requirements(self):
         if self.options.with_visualization:
-            self.requires("glfw/[>=3.2.1]@camposs/stable")
             self.requires("glew/[>=2.1.0]@camposs/stable")
     
     def configure(self):
-        if self.options.with_visualization:
-            if self.options.shared:
-                self.options['glew'].shared = True
+        if self.options.with_visualization and self.options.shared:
+            self.options['glew'].shared = True
 
     def build(self):
         cmake = CMake(self)
@@ -58,14 +57,15 @@ class Open3dConan(ConanFile):
         cmake.definitions["EIGEN3_FOUND"] = True
         cmake.definitions["BUILD_PYTHON_MODULE"] = False
 
+        cmake.definitions["BUILD_GLFW"] = False
+        cmake.definitions["GLFW_FOUND"] = True
+
         # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
         # the src/CMakeLists.txt file would need to be patched to disable the complete module.
 
         if self.options.with_visualization:
-            cmake.definitions["BUILD_GLFW"] = False
             cmake.definitions["BUILD_GLEW"] = False
             cmake.definitions["GLEW_FOUND"] = True
-            cmake.definitions["GLFW_FOUND"] = True
 
         cmake.definitions["BUILD_LIBREALSENSE"] = True
 
@@ -82,7 +82,8 @@ class Open3dConan(ConanFile):
         self.copy(pattern="*", src="bin", dst="./bin")
 
     def package_info(self):
-        self.cpp_info.libs = tools.collect_libs(self)
+        libs = tools.collect_libs(self)
+        self.cpp_info.libs = libs
         self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
 
 

@@ -7,14 +7,14 @@ The packages generated with this *conanfile.py* .
 
 ## Basic setup
 
-    $ conan install open3d/0.5.0@camposs/stable
+    $ conan install open3d/0.12.0@camposs/stable
 
 ## Project setup
 
 If you handle multiple dependencies in your project is better to add a *conanfile.txt*:
 
     [requires]
-    open3d/0.5.0@camposs/stable
+    open3d/0.12.0@camposs/stable
 
     [generators]
     txt

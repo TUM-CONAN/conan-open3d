@@ -5,19 +5,21 @@ import shutil
 
 
 class Open3dConan(ConanFile):
-    version = "0.5.0"
+    upstream_version = "0.12.0"
+    package_revision = "-r1"
+    version = "{0}{1}".format(upstream_version, package_revision)
 
     name = "open3d"
     license = "https://github.com/IntelVCL/Open3D/raw/master/LICENSE"
-    description = "Open3D: A Modern Library for 3D Data Processing http://www.open3d.org (Forked for use with Ubitrack"
+    description = "Open3D: A Modern Library for 3D Data Processing http://www.open3d.org"
     url = "https://github.com/ulricheck/Open3D"
     settings = "os", "compiler", "build_type", "arch"
-    generators = "pkg_config", "cmake"
+    generators = "cmake"
     short_paths = True
 
     requires = (
-        "eigen/[>=3.3.4]@camposs/stable",
-        "glfw/[>=3.2.1]@camposs/stable",
+        "eigen/[>=3.3.9]@camposs/stable",
+        "glfw/3.3@camposs/stable",
         )
 
     options = {
@@ -30,15 +32,24 @@ class Open3dConan(ConanFile):
         "with_visualization=False",
         )
 
+    source_subfolder = "source_subfolder"
+    build_subfolder = "build_subfolder"
+
     scm = {
         "type": "git",
-        "subfolder": "open3d",
+        "subfolder": source_subfolder,
         "url": "https://github.com/IntelVCL/Open3D.git",
-        "revision": "v%s" % version,
+        "revision": "v%s" % upstream_version,
         "submodule": "recursive",
      }
 
-    exports_sources = "CMakeLists.txt",
+    exports = [
+        "patches/fix_eigen_transform_error.patch",
+        ]
+
+
+    # issue with CMake add_subdirectory https://github.com/intel-isl/Open3D/issues/3116
+    # exports_sources = "CMakeLists.txt",
 
     def requirements(self):
         if self.options.with_visualization:
@@ -48,43 +59,74 @@ class Open3dConan(ConanFile):
         if self.options.with_visualization and self.options.shared:
             self.options['glew'].shared = True
 
+
     def build(self):
+        open3d_source_dir = os.path.join(self.source_folder, self.source_subfolder)
+        tools.patch(open3d_source_dir, "patches/fix_eigen_transform_error.patch")
+        tools.replace_in_file(os.path.join(self.source_subfolder, "CMakeLists.txt"),
+            """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")""",
+            """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")
+include(${CMAKE_BINARY_DIR}/../conanbuildinfo.cmake)
+conan_basic_setup()
+
+SET(EIGEN3_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_EIGEN}")
+SET(GLEW_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_GLEW}")
+SET(GLEW_LIBRARY_DIRS "${CONAN_LIB_DIRS_GLEW}")
+SET(GLEW_LIBRARIES "${CONAN_LIBS_GLEW}")
+
+SET(GLFW_LIBRARY_DIRS "${CONAN_LIB_DIRS_GLFW}")
+SET(GLFW_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_GLFW}")
+SET(GLFW_LIBRARIES "${CONAN_LIBS_GLFW}")
+
+MESSAGE(STATUS "Eigen: ${EIGEN3_FOUND} inc: ${EIGEN3_INCLUDE_DIRS}")
+MESSAGE(STATUS "GLFW: ${GLFW_FOUND} inc: ${GLFW_INCLUDE_DIRS} lib: ${GLFW_LIBRARIES}")
+MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRARIES}")""") 
+
+        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "find_dependencies.cmake"),
+            """find_package(glfw3)""",
+            """find_package(GLFW REQUIRED)""")
+
+
+        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "find_dependencies.cmake"),
+            """if(TARGET glfw)""",
+            """if(TARGET glfw3)""")
+
         cmake = CMake(self)
+
         cmake.definitions["BUILD_SHARED_LIBS"] = self.options.shared
-
-        cmake.definitions["BUILD_EIGEN3"] = False
-        cmake.definitions["BUILD_PYBIND11"] = False
-        cmake.definitions["EIGEN3_FOUND"] = True
+        cmake.definitions["BUILD_GUI"] = False
         cmake.definitions["BUILD_PYTHON_MODULE"] = False
+        cmake.definitions["BUILD_EXAMPLES"] = False
 
-        cmake.definitions["BUILD_GLFW"] = False
-        cmake.definitions["GLFW_FOUND"] = True
+        # Linking issue: https://github.com/intel-isl/Open3D/issues/2286
+        cmake.definitions["GLIBCXX_USE_CXX11_ABI"] = True
 
-        # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
+        cmake.definitions["USE_SYSTEM_EIGEN3"] = True
+        cmake.definitions["USE_SYSTEM_GLFW"] = True
+        cmake.definitions["USE_SYSTEM_GLEW"] = True
+
+        # # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
         # the src/CMakeLists.txt file would need to be patched to disable the complete module.
 
         if self.options.with_visualization:
-            cmake.definitions["BUILD_GLEW"] = False
-            cmake.definitions["GLEW_FOUND"] = True
+            cmake.definitions["BUILD_GUI"] = True
 
-        cmake.definitions["BUILD_LIBREALSENSE"] = True
+        cmake.definitions["BUILD_LIBREALSENSE"] = False
 
-        cmake.configure()
+        cmake.configure(source_folder="source_subfolder", build_folder="build_subfolder")
         cmake.build()
         cmake.install()
 
     def package(self):
-        base_dir = os.path.join(self.package_folder, "include", "open3d_conan")
-        if os.path.exists(base_dir):
-            for name in os.listdir(base_dir):
-                shutil.move(os.path.join(base_dir, name), os.path.join(self.package_folder, "include"))
 
         self.copy(pattern="*", src="bin", dst="./bin")
+        self.copy(pattern="*.a", dst="lib", src=self.build_subfolder, keep_path=False)
+        self.copy(pattern="*.so", dst="lib", src=self.build_subfolder, keep_path=False)
+        self.copy(pattern="*.lib", dst="lib", src=self.build_subfolder, keep_path=False)
+        self.copy(pattern="*.dll", dst="bin", src=self.build_subfolder, keep_path=False)
+
 
     def package_info(self):
         libs = tools.collect_libs(self)
         self.cpp_info.libs = libs
-        self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
-
-
-
+        # self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))

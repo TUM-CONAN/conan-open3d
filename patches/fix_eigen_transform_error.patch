@@ -1,0 +1,34 @@
+From c27ddb336eb1466f115498e63df1b2d82f80817c Mon Sep 17 00:00:00 2001
+From: Tianyu Song <tim.sung111@gmail.com>
+Date: Fri, 30 Apr 2021 18:41:15 +0200
+Subject: [PATCH] test
+
+---
+ cpp/open3d/geometry/Line3D.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/cpp/open3d/geometry/Line3D.cpp b/cpp/open3d/geometry/Line3D.cpp
+index 28e2e6c61..408512532 100644
+--- a/cpp/open3d/geometry/Line3D.cpp
++++ b/cpp/open3d/geometry/Line3D.cpp
+@@ -27,7 +27,7 @@ Line3D::Line3D(const Eigen::Vector3d& origin,
+ }
+ 
+ void Line3D::Transform(const Eigen::Transform<double, 3, Eigen::Affine>& t) {
+-    this->transform(t);
++    this->Transform(t);
+ }
+ 
+ std::pair<double, double> Line3D::SlabAABBBase(
+@@ -321,7 +321,7 @@ Segment3D::Segment3D(const std::pair<Eigen::Vector3d, Eigen::Vector3d>& pair)
+     : Segment3D(std::get<0>(pair), std::get<1>(pair)) {}
+ 
+ void Segment3D::Transform(const Eigen::Transform<double, 3, Eigen::Affine>& t) {
+-    this->transform(t);
++    this->Transform(t);
+     end_point_ = t * end_point_;
+ }
+ 
+-- 
+2.17.1
+

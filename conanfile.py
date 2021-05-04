@@ -20,6 +20,7 @@ class Open3dConan(ConanFile):
     requires = (
         "eigen/[>=3.3.9]@camposs/stable",
         "glfw/3.3@camposs/stable",
+        # "glew/[>=2.1.0]@camposs/stable",
         )
 
     options = {
@@ -28,7 +29,7 @@ class Open3dConan(ConanFile):
         }
 
     default_options = (
-        "shared=False",
+        "shared=True",
         "with_visualization=False",
         )
 
@@ -91,18 +92,29 @@ MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRAR
     INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE_DIRS}"
     INTERFACE_LINK_LIBRARIES "${GLFW_LIBRARIES}")""")
 
-        # tools.replace_in_file(os.path.join(self.source_subfolder, "cpp", "CMakeLists.txt"),
-        #     """add_subdirectory(tools)""",
-        #     """# add_subdirectory(tools)""")
+        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "libpng","CMakeLists.txt"),
+            """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)""",
+            """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)
+add_custom_command(TARGET ${PNG_LIBRARY} POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
 
-        # tools.replace_in_file(os.path.join(self.source_subfolder, "cpp", "CMakeLists.txt"),
-        #     """add_subdirectory(apps)""",
-        #     """# add_subdirectory(apps)""")
+        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "zlib","CMakeLists.txt"),
+            """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)""",
+            """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)
+add_custom_command(TARGET ${ZLIB_LIBRARY} POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
 
-        tools.replace_in_file(os.path.join(self.source_subfolder, "CMakeLists.txt"),
-            """add_subdirectory(examples)""",
-            """# add_subdirectory(examples)""")
-
+        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "glew","CMakeLists.txt"),
+            """set(GLEW_LIBRARIES ${GLEW_LIBRARIES} PARENT_SCOPE)""",
+            """set(GLEW_LIBRARIES ${GLEW_LIBRARIES} PARENT_SCOPE)
+add_custom_command(TARGET ${GLEW_LIBRARY} POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glew${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}glew${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
         cmake = CMake(self)
 
         cmake.definitions["BUILD_SHARED_LIBS"] = self.options.shared
@@ -131,11 +143,11 @@ MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRAR
 
     def package(self):
 
-        self.copy(pattern="*", src="bin", dst="./bin")
-        self.copy(pattern="*.a", dst="lib", src=self.build_subfolder, keep_path=False)
-        self.copy(pattern="*.so", dst="lib", src=self.build_subfolder, keep_path=False)
-        self.copy(pattern="*.lib", dst="lib", src=self.build_subfolder, keep_path=False)
-        self.copy(pattern="*.dll", dst="bin", src=self.build_subfolder, keep_path=False)
+        #self.copy(pattern="*", src="bin", dst="./bin")
+        #self.copy(pattern="*.a", dst="lib", src=self.build_subfolder, keep_path=False)
+       # self.copy(pattern="*.so", dst="lib", src=self.build_subfolder, keep_path=False)
+       # self.copy(pattern="*.lib", dst="lib", src=self.build_subfolder, keep_path=False)
+       self.copy(pattern="*.dll", dst="bin", src=self.build_subfolder, keep_path=False)
 
 
     def package_info(self):

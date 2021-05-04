@@ -28,7 +28,7 @@ class Open3dConan(ConanFile):
         }
 
     default_options = (
-        "shared=True",
+        "shared=False",
         "with_visualization=False",
         )
 
@@ -79,17 +79,29 @@ SET(GLFW_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_GLFW}")
 SET(GLFW_LIBRARIES "${CONAN_LIBS_GLFW}")
 
 MESSAGE(STATUS "Eigen: ${EIGEN3_FOUND} inc: ${EIGEN3_INCLUDE_DIRS}")
-MESSAGE(STATUS "GLFW: ${GLFW_FOUND} inc: ${GLFW_INCLUDE_DIRS} lib: ${GLFW_LIBRARIES}")
+MESSAGE(STATUS "GLFW: ${CONAN_LIB_DIRS_GLFW} inc: ${GLFW_INCLUDE_DIRS} lib: ${GLFW_LIBRARIES}")
 MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRARIES}")""") 
 
         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "find_dependencies.cmake"),
             """find_package(glfw3)""",
-            """find_package(GLFW REQUIRED)""")
+            """find_package(GLFW REQUIRED)
+    add_library(glfw STATIC IMPORTED)
+    set_target_properties(glfw PROPERTIES
+    IMPORTED_LOCATION "${GLFW_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE_DIRS}"
+    INTERFACE_LINK_LIBRARIES "${GLFW_LIBRARIES}")""")
 
+        # tools.replace_in_file(os.path.join(self.source_subfolder, "cpp", "CMakeLists.txt"),
+        #     """add_subdirectory(tools)""",
+        #     """# add_subdirectory(tools)""")
 
-        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "find_dependencies.cmake"),
-            """if(TARGET glfw)""",
-            """if(TARGET glfw3)""")
+        # tools.replace_in_file(os.path.join(self.source_subfolder, "cpp", "CMakeLists.txt"),
+        #     """add_subdirectory(apps)""",
+        #     """# add_subdirectory(apps)""")
+
+        tools.replace_in_file(os.path.join(self.source_subfolder, "CMakeLists.txt"),
+            """add_subdirectory(examples)""",
+            """# add_subdirectory(examples)""")
 
         cmake = CMake(self)
 

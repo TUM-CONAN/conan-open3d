@@ -54,9 +54,9 @@ class Open3dConan(ConanFile):
     # issue with CMake add_subdirectory https://github.com/intel-isl/Open3D/issues/3116
     # exports_sources = "CMakeLists.txt",
 
-    def requirements(self):
-        if self.options.with_visualization:
-            self.requires("glew/[>=2.1.0]@camposs/stable")
+    # def requirements(self):
+    #     if self.options.with_visualization:
+    #         self.requires("imgui/1.66@camposs/stable")
     
     def configure(self):
         if self.options.with_visualization and self.options.shared:
@@ -117,6 +117,11 @@ add_custom_command(TARGET ${GLEW_LIBRARY} POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glew${CMAKE_STATIC_LIBRARY_SUFFIX}"
         "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}glew${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
+
+        tools.replace_in_file(os.path.join(self.source_subfolder, "cpp", "apps","CMakeLists.txt"),
+            """APP(Open3DViewer Open3D Open3DViewer ${CMAKE_PROJECT_NAME})""",
+            """#APP(Open3DViewer Open3D Open3DViewer ${CMAKE_PROJECT_NAME})""")
+
         cmake = CMake(self)
 
         cmake.definitions["BUILD_SHARED_LIBS"] = self.options.shared

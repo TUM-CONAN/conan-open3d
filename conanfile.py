@@ -6,7 +6,7 @@ import shutil
 
 class Open3dConan(ConanFile):
     upstream_version = "0.12.0"
-    package_revision = "-r1"
+    package_revision = "-r2"
     version = "{0}{1}".format(upstream_version, package_revision)
 
     name = "open3d"
@@ -28,11 +28,13 @@ class Open3dConan(ConanFile):
     options = {
         "shared": [True, False],
         "with_visualization": [True, False],
+        "with_python": [True, False],
         }
 
     default_options = (
         "shared=True",
         "with_visualization=False",
+        "with_python=False",
         )
 
     source_subfolder = "source_subfolder"
@@ -54,7 +56,9 @@ class Open3dConan(ConanFile):
     # issue with CMake add_subdirectory https://github.com/intel-isl/Open3D/issues/3116
     # exports_sources = "CMakeLists.txt",
 
-    # def requirements(self):
+    def requirements(self):
+        if self.options.with_python:
+            self.requires("python_dev_config/[>=1.0]@camposs/stable")
     #     if self.options.with_visualization:
     #         self.requires("imgui/1.66@camposs/stable")
     
@@ -62,6 +66,38 @@ class Open3dConan(ConanFile):
         if self.options.with_visualization and self.options.shared:
             self.options['glew'].shared = True
 
+
+    def _cmake_configure(self):
+        cmake = CMake(self)
+
+        cmake.definitions["BUILD_SHARED_LIBS"] = self.options.shared
+        cmake.definitions["BUILD_GUI"] = False
+        cmake.definitions["BUILD_PYTHON_MODULE"] = False
+        cmake.definitions["BUILD_EXAMPLES"] = False
+
+        # Linking issue: https://github.com/intel-isl/Open3D/issues/2286
+        cmake.definitions["GLIBCXX_USE_CXX11_ABI"] = True
+
+        cmake.definitions["USE_SYSTEM_EIGEN3"] = True
+        cmake.definitions["USE_SYSTEM_GLFW"] = True
+        cmake.definitions["USE_SYSTEM_GLEW"] = True
+        cmake.definitions["USE_SYSTEM_FMT"] = True
+
+        # # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
+        # the src/CMakeLists.txt file would need to be patched to disable the complete module.
+
+        if self.options.with_visualization:
+            cmake.definitions["BUILD_GUI"] = True
+
+        if self.options.with_python:
+            cmake.definitions["BUILD_PYTHON_MODULE"] = True
+            cmake.definitions["PYTHON_EXECUTABLE"] = self.deps_user_info["python_dev_config"].PYTHON
+            
+
+        cmake.definitions["BUILD_LIBREALSENSE"] = False
+
+        cmake.configure(source_folder="source_subfolder", build_folder="build_subfolder")
+        return cmake
 
     def build(self):
         open3d_source_dir = os.path.join(self.source_folder, self.source_subfolder)
@@ -122,40 +158,23 @@ add_custom_command(TARGET ${GLEW_LIBRARY} POST_BUILD
             """APP(Open3DViewer Open3D Open3DViewer ${CMAKE_PROJECT_NAME})""",
             """#APP(Open3DViewer Open3D Open3DViewer ${CMAKE_PROJECT_NAME})""")
 
-        cmake = CMake(self)
+        if self.options.with_python and not tools.os_info.is_windows:
+            tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "CMake","FindPythonExecutable.cmake"),
+                """find_program(PYTHON_IN_PATH "python")""",
+                """find_program(PYTHON_IN_PATH "python3")""")
 
-        cmake.definitions["BUILD_SHARED_LIBS"] = self.options.shared
-        cmake.definitions["BUILD_GUI"] = False
-        cmake.definitions["BUILD_PYTHON_MODULE"] = False
-        cmake.definitions["BUILD_EXAMPLES"] = False
 
-        # Linking issue: https://github.com/intel-isl/Open3D/issues/2286
-        cmake.definitions["GLIBCXX_USE_CXX11_ABI"] = True
-
-        cmake.definitions["USE_SYSTEM_EIGEN3"] = True
-        cmake.definitions["USE_SYSTEM_GLFW"] = True
-        cmake.definitions["USE_SYSTEM_GLEW"] = True
-        cmake.definitions["USE_SYSTEM_FMT"] = True
-
-        # # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
-        # the src/CMakeLists.txt file would need to be patched to disable the complete module.
-
-        if self.options.with_visualization:
-            cmake.definitions["BUILD_GUI"] = True
-
-        cmake.definitions["BUILD_LIBREALSENSE"] = False
-
-        cmake.configure(source_folder="source_subfolder", build_folder="build_subfolder")
+        cmake = self._cmake_configure()
         cmake.build()
-        cmake.install()
+        cmake.build(target="python-package")
 
     def package(self):
-
-        #self.copy(pattern="*", src="bin", dst="./bin")
-        #self.copy(pattern="*.a", dst="lib", src=self.build_subfolder, keep_path=False)
-       # self.copy(pattern="*.so", dst="lib", src=self.build_subfolder, keep_path=False)
-       # self.copy(pattern="*.lib", dst="lib", src=self.build_subfolder, keep_path=False)
-       self.copy(pattern="*.dll", dst="bin", src=self.build_subfolder, keep_path=False)
+        cmake = self._cmake_configure()
+        cmake.install()
+        self.copy(pattern="pybind.*.so", src=os.path.join(self.build_subfolder, "lib"), dst="./lib")
+        if self.options.with_python:
+            with tools.chdir(os.path.join(self.build_folder, self.build_subfolder, "lib", "python_package")):
+                self.run('%s setup.py install --prefix="%s"' % (self.deps_user_info["python_dev_config"].PYTHON, self.package_folder), run_environment=True)
 
 
     def package_info(self):

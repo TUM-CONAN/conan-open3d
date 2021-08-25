@@ -20,8 +20,8 @@ class Open3dConan(ConanFile):
     requires = (
         "eigen/[>=3.3.9]@camposs/stable",
         "glfw/3.3@camposs/stable",
-        "fmt/[>=8.0]",
 
+        # "fmt/6.2.1",
         # "glew/[>=2.1.0]@camposs/stable",
         )
 
@@ -81,7 +81,7 @@ class Open3dConan(ConanFile):
         cmake.definitions["USE_SYSTEM_EIGEN3"] = True
         cmake.definitions["USE_SYSTEM_GLFW"] = True
         cmake.definitions["USE_SYSTEM_GLEW"] = True
-        cmake.definitions["USE_SYSTEM_FMT"] = True
+        # cmake.definitions["USE_SYSTEM_FMT"] = True
 
         # # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
         # the src/CMakeLists.txt file would need to be patched to disable the complete module.

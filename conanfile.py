@@ -20,7 +20,7 @@ class Open3dConan(ConanFile):
     requires = (
         "eigen/[>=3.3.9]@camposs/stable",
         "glfw/3.3@camposs/stable",
-        "fmt/6.0.0@bincrafters/stable",
+        "fmt/[>=8.0]",
 
         # "glew/[>=2.1.0]@camposs/stable",
         )

@@ -5,8 +5,8 @@ import shutil
 
 
 class Open3dConan(ConanFile):
-    upstream_version = "0.12.0"
-    package_revision = "-r2"
+    upstream_version = "0.13.0"
+    package_revision = ""
     version = "{0}{1}".format(upstream_version, package_revision)
 
     name = "open3d"
@@ -130,21 +130,21 @@ MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRAR
     INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE_DIRS}"
     INTERFACE_LINK_LIBRARIES "${GLFW_LIBRARIES}")""")
 
-        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "libpng","CMakeLists.txt"),
-            """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)""",
-            """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)
-add_custom_command(TARGET ${PNG_LIBRARY} POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
+#         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "libpng","CMakeLists.txt"),
+#             """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)""",
+#             """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)
+# add_custom_command(TARGET ${PNG_LIBRARY} POST_BUILD
+#     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+#         "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}"
+#         "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
 
-        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "zlib","CMakeLists.txt"),
-            """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)""",
-            """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)
-add_custom_command(TARGET ${ZLIB_LIBRARY} POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
+#         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "zlib","CMakeLists.txt"),
+#             """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)""",
+#             """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)
+# add_custom_command(TARGET ${ZLIB_LIBRARY} POST_BUILD
+#     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+#         "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}"
+#         "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
 
         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "glew","CMakeLists.txt"),
             """set(GLEW_LIBRARIES ${GLEW_LIBRARIES} PARENT_SCOPE)""",
@@ -166,11 +166,13 @@ add_custom_command(TARGET ${GLEW_LIBRARY} POST_BUILD
 
         cmake = self._cmake_configure()
         cmake.build()
-        cmake.build(target="python-package")
+        if self.options.with_python:
+            cmake.build(target="python-package")
 
     def package(self):
         cmake = self._cmake_configure()
         cmake.install()
+        # only unix match so far ..
         self.copy(pattern="pybind.*.so", src=os.path.join(self.build_subfolder, "lib"), dst="./lib")
         if self.options.with_python:
             with tools.chdir(os.path.join(self.build_folder, self.build_subfolder, "lib", "python_package")):

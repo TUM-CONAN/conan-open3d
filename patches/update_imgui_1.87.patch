@@ -1,0 +1,39 @@
+diff --git a/cpp/open3d/visualization/gui/Layout.cpp b/cpp/open3d/visualization/gui/Layout.cpp
+index f2d07604..e584e4ce 100644
+--- a/cpp/open3d/visualization/gui/Layout.cpp
++++ b/cpp/open3d/visualization/gui/Layout.cpp
+@@ -468,7 +468,7 @@ Widget::DrawResult CollapsableVert::Draw(const DrawContext& context) {
+     ImGui::PushStyleColor(ImGuiCol_HeaderActive,
+                           colorToImgui(context.theme.button_active_color));
+ 
+-    ImGui::SetNextTreeNodeOpen(impl_->is_open_);
++    ImGui::SetNextItemOpen(impl_->is_open_);
+     ImGui::PushFont((ImFont*)context.fonts.GetFont(impl_->font_id_));
+     bool node_clicked = ImGui::TreeNode(impl_->id_.c_str());
+     ImGui::PopFont();
+diff --git a/cpp/open3d/visualization/gui/MenuImgui.cpp b/cpp/open3d/visualization/gui/MenuImgui.cpp
+index 06facb8a..2186d4a4 100644
+--- a/cpp/open3d/visualization/gui/MenuImgui.cpp
++++ b/cpp/open3d/visualization/gui/MenuImgui.cpp
+@@ -266,7 +266,7 @@ MenuBase::ItemId MenuImgui::Draw(const DrawContext &context,
+     int width = padding + name_width + 2 * em + shortcut_width + 2 * em +
+                 int(std::ceil(1.5 * em)) + padding;  // checkbox
+ 
+-    ImGui::SetNextWindowContentWidth(float(width));
++    ImGui::SetNextWindowContentSize(ImVec2(float(width),0));
+     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
+                         ImVec2(0, float(context.theme.default_margin)));
+     ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding,
+diff --git a/cpp/open3d/visualization/gui/VectorEdit.cpp b/cpp/open3d/visualization/gui/VectorEdit.cpp
+index 4c17aa4d..62587bf4 100644
+--- a/cpp/open3d/visualization/gui/VectorEdit.cpp
++++ b/cpp/open3d/visualization/gui/VectorEdit.cpp
+@@ -95,7 +95,7 @@ Widget::DrawResult VectorEdit::Draw(const DrawContext& context) {
+     auto result = Widget::DrawResult::NONE;
+     DrawImGuiPushEnabledState();
+     ImGui::PushItemWidth(float(GetFrame().width));
+-    if (ImGui::InputFloat3(impl_->id_.c_str(), impl_->value_.data(), 3)) {
++    if (ImGui::InputFloat3(impl_->id_.c_str(), impl_->value_.data())) {
+         result = Widget::DrawResult::REDRAW;
+     }
+     ImGui::PopItemWidth();

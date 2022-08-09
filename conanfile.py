@@ -14,12 +14,13 @@ class Open3dConan(ConanFile):
     description = "Open3D: A Modern Library for 3D Data Processing http://www.open3d.org"
     url = "https://github.com/ulricheck/Open3D"
     settings = "os", "compiler", "build_type", "arch"
-    generators = "cmake"
+    generators = "cmake_find_package", "cmake"
     short_paths = True
 
     requires = (
         "eigen/[>=3.3.9]@camposs/stable",
-        "glfw/3.3@camposs/stable",
+        "glfw/3.3.4",
+        #"assimp/5.2.2",
 
         # "fmt/6.2.1",
         # "glew/[>=2.1.0]@camposs/stable",
@@ -40,16 +41,15 @@ class Open3dConan(ConanFile):
     source_subfolder = "source_subfolder"
     build_subfolder = "build_subfolder"
 
-    scm = {
-        "type": "git",
-        "subfolder": source_subfolder,
-        "url": "https://github.com/IntelVCL/Open3D.git",
-        "revision": "v%s" % upstream_version,
-        "submodule": "recursive",
-     }
+    scm = {"revision": "v0.13.0",
+           "subfolder": "source_subfolder",
+           "submodule": "recursive",
+           "type": "git",
+           "url": "https://github.com/isl-org/Open3D.git"}
 
     exports = [
         "patches/fix_eigen_transform_error.patch",
+        "update_imgui_1.87.patch"
         ]
 
 
@@ -59,7 +59,9 @@ class Open3dConan(ConanFile):
     def requirements(self):
         if self.options.with_python:
             self.requires("python_dev_config/[>=1.0]@camposs/stable")
-    #     if self.options.with_visualization:
+        if self.options.with_visualization:
+            self.requires("glew/2.2.0")
+            self.requires("imgui/cci.20220207+1.87.docking")
     #         self.requires("imgui/1.66@camposs/stable")
     
     def configure(self):
@@ -71,27 +73,29 @@ class Open3dConan(ConanFile):
         cmake = CMake(self)
 
         cmake.definitions["BUILD_SHARED_LIBS"] = self.options.shared
-        cmake.definitions["BUILD_GUI"] = False
-        cmake.definitions["BUILD_PYTHON_MODULE"] = False
-        cmake.definitions["BUILD_EXAMPLES"] = False
+        cmake.definitions["BUILD_GUI"] = 'OFF'
+        cmake.definitions["BUILD_PYTHON_MODULE"] = 'OFF'
+        cmake.definitions["BUILD_EXAMPLES"] = 'OFF'
 
         # Linking issue: https://github.com/intel-isl/Open3D/issues/2286
         cmake.definitions["GLIBCXX_USE_CXX11_ABI"] = True
 
-        cmake.definitions["USE_SYSTEM_EIGEN3"] = True
-        cmake.definitions["USE_SYSTEM_GLFW"] = True
-        cmake.definitions["USE_SYSTEM_GLEW"] = True
+        cmake.definitions["USE_SYSTEM_EIGEN3"] = 'ON'
+        cmake.definitions["USE_SYSTEM_GLFW"] = 'ON'
+        cmake.definitions["USE_SYSTEM_GLEW"] = 'ON'
+        cmake.definitions["USE_SYSTEM_IMGUI"] = 'ON'
+        
         # cmake.definitions["USE_SYSTEM_FMT"] = True
 
         # # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
         # the src/CMakeLists.txt file would need to be patched to disable the complete module.
 
         if self.options.with_visualization:
-            cmake.definitions["BUILD_GUI"] = True
+            cmake.definitions["BUILD_GUI"] = 'ON'
 
-        if self.options.with_python:
-            cmake.definitions["BUILD_PYTHON_MODULE"] = True
-            cmake.definitions["PYTHON_EXECUTABLE"] = self.deps_user_info["python_dev_config"].PYTHON
+        #if self.options.with_python:
+        #    cmake.definitions["BUILD_PYTHON_MODULE"] = True
+        #   cmake.definitions["PYTHON_EXECUTABLE"] = self.deps_user_info["python_dev_config"].PYTHON
             
 
         cmake.definitions["BUILD_LIBREALSENSE"] = False
@@ -102,6 +106,7 @@ class Open3dConan(ConanFile):
     def build(self):
         open3d_source_dir = os.path.join(self.source_folder, self.source_subfolder)
         tools.patch(open3d_source_dir, "patches/fix_eigen_transform_error.patch")
+        tools.patch(open3d_source_dir, "patches/update_imgui_1.87.patch")
         tools.replace_in_file(os.path.join(self.source_subfolder, "CMakeLists.txt"),
             """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")""",
             """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")
@@ -121,14 +126,21 @@ MESSAGE(STATUS "Eigen: ${EIGEN3_FOUND} inc: ${EIGEN3_INCLUDE_DIRS}")
 MESSAGE(STATUS "GLFW: ${CONAN_LIB_DIRS_GLFW} inc: ${GLFW_INCLUDE_DIRS} lib: ${GLFW_LIBRARIES}")
 MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRARIES}")""") 
 
+
+
         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "find_dependencies.cmake"),
-            """find_package(glfw3)""",
-            """find_package(GLFW REQUIRED)
-    add_library(glfw STATIC IMPORTED)
-    set_target_properties(glfw PROPERTIES
-    IMPORTED_LOCATION "${GLFW_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE_DIRS}"
-    INTERFACE_LINK_LIBRARIES "${GLFW_LIBRARIES}")""")
+            """find_package(ImGui)""",
+            """find_package(imgui REQUIRED)
+            add_library(ImGui::ImGui ALIAS imgui::imgui)""")
+    
+#        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "find_dependencies.cmake"),
+#            """find_package(glfw3)""",
+#            """find_package(glfw3 REQUIRED)
+#    add_library(glfw STATIC IMPORTED)
+#    set_target_properties(glfw PROPERTIES
+#    IMPORTED_LOCATION "${GLFW_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX}"
+#    INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE_DIRS}"
+#    INTERFACE_LINK_LIBRARIES "${GLFW_LIBRARIES}")""")
 
 #         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "libpng","CMakeLists.txt"),
 #             """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)""",

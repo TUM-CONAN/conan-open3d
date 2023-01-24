@@ -5,8 +5,8 @@ import shutil
 
 
 class Open3dConan(ConanFile):
-    upstream_version = "0.15.0"
-    package_revision = "r1"
+    upstream_version = "0.16.1"
+    package_revision = ""
     version = "{0}{1}".format(upstream_version, package_revision)
 
     name = "open3d"
@@ -22,7 +22,7 @@ class Open3dConan(ConanFile):
         "glfw/3.3.4",
         #"assimp/5.2.2",
 
-        "fmt/8.1.1",
+        "fmt/9.1.0",
         # "glew/[>=2.1.0]@camposs/stable",
         )
 
@@ -41,14 +41,14 @@ class Open3dConan(ConanFile):
     source_subfolder = "source_subfolder"
     build_subfolder = "build_subfolder"
 
-    scm = {"revision": "v0.15.0",
+    scm = {"revision": "v%s" % version,
            "subfolder": "source_subfolder",
            "submodule": "recursive",
            "type": "git",
            "url": "https://github.com/isl-org/Open3D.git"}
 
     exports = [
-        "patches/fmt_8.1.1.patch"
+        "patches/fmtlib_9.10_fix.patch"
         ]
 
 
@@ -103,7 +103,7 @@ class Open3dConan(ConanFile):
 
     def build(self):
         open3d_source_dir = os.path.join(self.source_folder, self.source_subfolder)
-        tools.patch(open3d_source_dir, "patches/fmt_8.1.1.patch")        
+        tools.patch(open3d_source_dir, "patches/fmtlib_9.10_fix.patch")        
         tools.replace_in_file(os.path.join(self.source_subfolder, "CMakeLists.txt"),
             """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")""",
             """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")
@@ -122,9 +122,6 @@ SET(GLFW_LIBRARIES "${CONAN_LIBS_GLFW}")
 MESSAGE(STATUS "Eigen: ${EIGEN3_FOUND} inc: ${EIGEN3_INCLUDE_DIRS}")
 MESSAGE(STATUS "GLFW: ${CONAN_LIB_DIRS_GLFW} inc: ${GLFW_INCLUDE_DIRS} lib: ${GLFW_LIBRARIES}")
 MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRARIES}")""") 
-
-
-
         
 
         cmake = self._cmake_configure()

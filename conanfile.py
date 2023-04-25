@@ -1,164 +1,182 @@
-from conans import ConanFile, CMake, tools
+from conan import ConanFile
+from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout, CMakeDeps
+from conan.tools.scm import Git
+from conan.tools.files import load, update_conandata, copy, replace_in_file, collect_libs, patch
 import os
-from io import StringIO
-import shutil
 
 
 class Open3dConan(ConanFile):
-    upstream_version = "0.12.0"
-    package_revision = "-r1"
+    upstream_version = "0.17.0"
+    package_revision = ""
     version = "{0}{1}".format(upstream_version, package_revision)
 
     name = "open3d"
     license = "https://github.com/IntelVCL/Open3D/raw/master/LICENSE"
     description = "Open3D: A Modern Library for 3D Data Processing http://www.open3d.org"
-    url = "https://github.com/ulricheck/Open3D"
+    url = "https://github.com/TUM-CONAN/conan-open3d"
+
     settings = "os", "compiler", "build_type", "arch"
-    generators = "cmake"
-    short_paths = True
-
-    requires = (
-        "eigen/[>=3.3.9]@camposs/stable",
-        "glfw/3.3@camposs/stable",
-        "fmt/6.0.0@bincrafters/stable",
-
-        # "glew/[>=2.1.0]@camposs/stable",
-        )
-
     options = {
         "shared": [True, False],
         "with_visualization": [True, False],
         }
-
-    default_options = (
-        "shared=True",
-        "with_visualization=False",
-        )
-
-    source_subfolder = "source_subfolder"
-    build_subfolder = "build_subfolder"
-
-    scm = {
-        "type": "git",
-        "subfolder": source_subfolder,
-        "url": "https://github.com/IntelVCL/Open3D.git",
-        "revision": "v%s" % upstream_version,
-        "submodule": "recursive",
-     }
+    default_options = {
+        "shared": True,
+        "with_visualization": False,
+    }
 
     exports = [
         "patches/fix_eigen_transform_error.patch",
         ]
 
+    def requirements(self):
+        self.requires("eigen/3.4.0")
+        # self.requires("glfw/3.3.8")
+        self.requires("fmt/9.1.0")
+        # self.requires("assimp/5.2.2")
+        # self.requires("libjpeg/9e")
+        # self.requires("jsoncpp/1.9.5")
 
-    # issue with CMake add_subdirectory https://github.com/intel-isl/Open3D/issues/3116
-    # exports_sources = "CMakeLists.txt",
+        if self.options.with_visualization:
+            self.requires("glew/2.2.0")
 
-    # def requirements(self):
-    #     if self.options.with_visualization:
-    #         self.requires("imgui/1.66@camposs/stable")
-    
     def configure(self):
         if self.options.with_visualization and self.options.shared:
-            self.options['glew'].shared = True
+            self.dependencies['glew'].options.shared = True
+            self.dependencies['glfw'].options.shared = True
+
+    def export(self):
+        update_conandata(self, {"sources": {
+            "commit": "v{}".format(self.version),
+            "url": "https://github.com/IntelVCL/Open3D.git"
+        }})
+
+    def source(self):
+        git = Git(self)
+        sources = self.conan_data["sources"]
+        git.clone(url=sources["url"], target=self.source_folder, args=["--recursive", ])
+        git.checkout(commit=sources["commit"])
+
+        # patch was made for older version, but the problem still seems to be in the sources
+        # @todo need to create new patch !!!
+        # patch(self, self.source_folder, os.path.join(self.recipe_folder, "patches", "fix_eigen_transform_error.patch"))
 
 
-    def build(self):
-        open3d_source_dir = os.path.join(self.source_folder, self.source_subfolder)
-        tools.patch(open3d_source_dir, "patches/fix_eigen_transform_error.patch")
-        tools.replace_in_file(os.path.join(self.source_subfolder, "CMakeLists.txt"),
-            """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")""",
-            """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")
-include(${CMAKE_BINARY_DIR}/../conanbuildinfo.cmake)
-conan_basic_setup()
+    def generate(self):
+        tc = CMakeToolchain(self)
 
-SET(EIGEN3_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_EIGEN}")
-SET(GLEW_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_GLEW}")
-SET(GLEW_LIBRARY_DIRS "${CONAN_LIB_DIRS_GLEW}")
-SET(GLEW_LIBRARIES "${CONAN_LIBS_GLEW}")
+        def add_cmake_option(option, value):
+            var_name = "{}".format(option).upper()
+            value_str = "{}".format(value)
+            var_value = "ON" if value_str == 'True' else "OFF" if value_str == 'False' else value_str
+            tc.variables[var_name] = var_value
 
-SET(GLFW_LIBRARY_DIRS "${CONAN_LIB_DIRS_GLFW}")
-SET(GLFW_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_GLFW}")
-SET(GLFW_LIBRARIES "${CONAN_LIBS_GLFW}")
+        for option, value in self.options.items():
+            add_cmake_option(option, value)
 
-MESSAGE(STATUS "Eigen: ${EIGEN3_FOUND} inc: ${EIGEN3_INCLUDE_DIRS}")
-MESSAGE(STATUS "GLFW: ${CONAN_LIB_DIRS_GLFW} inc: ${GLFW_INCLUDE_DIRS} lib: ${GLFW_LIBRARIES}")
-MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRARIES}")""") 
 
-        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "find_dependencies.cmake"),
-            """find_package(glfw3)""",
-            """find_package(GLFW REQUIRED)
-    add_library(glfw STATIC IMPORTED)
-    set_target_properties(glfw PROPERTIES
-    IMPORTED_LOCATION "${GLFW_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE_DIRS}"
-    INTERFACE_LINK_LIBRARIES "${GLFW_LIBRARIES}")""")
-
-        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "libpng","CMakeLists.txt"),
-            """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)""",
-            """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)
-add_custom_command(TARGET ${PNG_LIBRARY} POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
-
-        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "zlib","CMakeLists.txt"),
-            """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)""",
-            """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)
-add_custom_command(TARGET ${ZLIB_LIBRARY} POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
-
-        tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "glew","CMakeLists.txt"),
-            """set(GLEW_LIBRARIES ${GLEW_LIBRARIES} PARENT_SCOPE)""",
-            """set(GLEW_LIBRARIES ${GLEW_LIBRARIES} PARENT_SCOPE)
-add_custom_command(TARGET ${GLEW_LIBRARY} POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glew${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}glew${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
-
-        tools.replace_in_file(os.path.join(self.source_subfolder, "cpp", "apps","CMakeLists.txt"),
-            """APP(Open3DViewer Open3D Open3DViewer ${CMAKE_PROJECT_NAME})""",
-            """#APP(Open3DViewer Open3D Open3DViewer ${CMAKE_PROJECT_NAME})""")
-
-        cmake = CMake(self)
-
-        cmake.definitions["BUILD_SHARED_LIBS"] = self.options.shared
-        cmake.definitions["BUILD_GUI"] = False
-        cmake.definitions["BUILD_PYTHON_MODULE"] = False
-        cmake.definitions["BUILD_EXAMPLES"] = False
+        tc.cache_variables["BUILD_GUI"] = False
+        tc.cache_variables["BUILD_PYTHON_MODULE"] = False
+        tc.cache_variables["BUILD_EXAMPLES"] = False
 
         # Linking issue: https://github.com/intel-isl/Open3D/issues/2286
-        cmake.definitions["GLIBCXX_USE_CXX11_ABI"] = True
+        tc.cache_variables["GLIBCXX_USE_CXX11_ABI"] = True
 
-        cmake.definitions["USE_SYSTEM_EIGEN3"] = True
-        cmake.definitions["USE_SYSTEM_GLFW"] = True
-        cmake.definitions["USE_SYSTEM_GLEW"] = True
-        cmake.definitions["USE_SYSTEM_FMT"] = True
+        tc.cache_variables["USE_SYSTEM_EIGEN3"] = True
+        # tc.cache_variables["USE_SYSTEM_GLFW"] = True
+        tc.cache_variables["USE_SYSTEM_GLEW"] = True
+        tc.cache_variables["USE_SYSTEM_FMT"] = True
+        # tc.cache_variables["USE_SYSTEM_ASSIMP"] = True
+        # tc.cache_variables["USE_SYSTEM_JPEG"] = True
+        # tc.cache_variables["USE_SYSTEM_JSONCPP"] = True
 
         # # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
         # the src/CMakeLists.txt file would need to be patched to disable the complete module.
 
         if self.options.with_visualization:
-            cmake.definitions["BUILD_GUI"] = True
+            tc.cache_variables["BUILD_GUI"] = True
 
-        cmake.definitions["BUILD_LIBREALSENSE"] = False
+        tc.cache_variables["BUILD_LIBREALSENSE"] = False
 
-        cmake.configure(source_folder="source_subfolder", build_folder="build_subfolder")
+        tc.generate()
+
+        deps = CMakeDeps(self)
+        deps.generate()
+
+    def layout(self):
+        cmake_layout(self, src_folder="source_folder")
+
+    def build(self):
+        cmake = CMake(self)
+        cmake.configure()
         cmake.build()
-        cmake.install()
 
     def package(self):
-
-        #self.copy(pattern="*", src="bin", dst="./bin")
-        #self.copy(pattern="*.a", dst="lib", src=self.build_subfolder, keep_path=False)
-       # self.copy(pattern="*.so", dst="lib", src=self.build_subfolder, keep_path=False)
-       # self.copy(pattern="*.lib", dst="lib", src=self.build_subfolder, keep_path=False)
-       self.copy(pattern="*.dll", dst="bin", src=self.build_subfolder, keep_path=False)
-
+        cmake = CMake(self)
+        cmake.install()
 
     def package_info(self):
-        libs = tools.collect_libs(self)
-        self.cpp_info.libs = libs
-        # self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
+        self.cpp_info.libs = collect_libs(self)
+
+
+
+
+#
+#
+#     def build(self):
+#         open3d_source_dir = os.path.join(self.source_folder, self.source_subfolder)
+#         tools.replace_in_file(os.path.join(self.source_subfolder, "CMakeLists.txt"),
+#             """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")""",
+#             """message(STATUS "Open3D ${OPEN3D_VERSION_FULL}")
+# include(${CMAKE_BINARY_DIR}/../conanbuildinfo.cmake)
+# conan_basic_setup()
+#
+# SET(EIGEN3_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_EIGEN}")
+# SET(GLEW_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_GLEW}")
+# SET(GLEW_LIBRARY_DIRS "${CONAN_LIB_DIRS_GLEW}")
+# SET(GLEW_LIBRARIES "${CONAN_LIBS_GLEW}")
+#
+# SET(GLFW_LIBRARY_DIRS "${CONAN_LIB_DIRS_GLFW}")
+# SET(GLFW_INCLUDE_DIRS "${CONAN_INCLUDE_DIRS_GLFW}")
+# SET(GLFW_LIBRARIES "${CONAN_LIBS_GLFW}")
+#
+# MESSAGE(STATUS "Eigen: ${EIGEN3_FOUND} inc: ${EIGEN3_INCLUDE_DIRS}")
+# MESSAGE(STATUS "GLFW: ${CONAN_LIB_DIRS_GLFW} inc: ${GLFW_INCLUDE_DIRS} lib: ${GLFW_LIBRARIES}")
+# MESSAGE(STATUS "GLEW: ${GLEW_FOUND} inc: ${GLEW_INCLUDE_DIRS} lib: ${GLEW_LIBRARIES}")""")
+#
+#         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "find_dependencies.cmake"),
+#             """find_package(glfw3)""",
+#             """find_package(GLFW REQUIRED)
+#     add_library(glfw STATIC IMPORTED)
+#     set_target_properties(glfw PROPERTIES
+#     IMPORTED_LOCATION "${GLFW_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX}"
+#     INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE_DIRS}"
+#     INTERFACE_LINK_LIBRARIES "${GLFW_LIBRARIES}")""")
+#
+#         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "libpng","CMakeLists.txt"),
+#             """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)""",
+#             """set(PNG_LIBRARIES ${PNG_LIBRARIES} PARENT_SCOPE)
+# add_custom_command(TARGET ${PNG_LIBRARY} POST_BUILD
+#     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+#         "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}"
+#         "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}png${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
+#
+#         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "zlib","CMakeLists.txt"),
+#             """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)""",
+#             """set(ZLIB_LIBRARY ${ZLIB_LIBRARY} PARENT_SCOPE)
+# add_custom_command(TARGET ${ZLIB_LIBRARY} POST_BUILD
+#     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+#         "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}"
+#         "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}zlib${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
+#
+#         tools.replace_in_file(os.path.join(self.source_subfolder, "3rdparty", "glew","CMakeLists.txt"),
+#             """set(GLEW_LIBRARIES ${GLEW_LIBRARIES} PARENT_SCOPE)""",
+#             """set(GLEW_LIBRARIES ${GLEW_LIBRARIES} PARENT_SCOPE)
+# add_custom_command(TARGET ${GLEW_LIBRARY} POST_BUILD
+#     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+#         "${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glew${CMAKE_STATIC_LIBRARY_SUFFIX}"
+#         "${CMAKE_BINARY_DIR}/lib/Release/${CMAKE_STATIC_LIBRARY_PREFIX}glew${CMAKE_STATIC_LIBRARY_SUFFIX}")""")
+#
+#         tools.replace_in_file(os.path.join(self.source_subfolder, "cpp", "apps","CMakeLists.txt"),
+#             """APP(Open3DViewer Open3D Open3DViewer ${CMAKE_PROJECT_NAME})""",
+#             """#APP(Open3DViewer Open3D Open3DViewer ${CMAKE_PROJECT_NAME})""")

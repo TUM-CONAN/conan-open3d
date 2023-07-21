@@ -83,12 +83,16 @@ class Open3dConan(ConanFile):
         tc.cache_variables["GLIBCXX_USE_CXX11_ABI"] = True
 
         tc.cache_variables["USE_SYSTEM_EIGEN3"] = True
-        # tc.cache_variables["USE_SYSTEM_GLFW"] = True
         tc.cache_variables["USE_SYSTEM_GLEW"] = True
         tc.cache_variables["USE_SYSTEM_FMT"] = True
-        # tc.cache_variables["USE_SYSTEM_ASSIMP"] = True
-        # tc.cache_variables["USE_SYSTEM_JPEG"] = True
-        # tc.cache_variables["USE_SYSTEM_JSONCPP"] = True
+
+        if self.options.shared:
+            tc.cache_variables['BUILD_SHARED_LIBS'] = True
+
+            # tc.cache_variables["USE_SYSTEM_GLFW"] = True
+            # tc.cache_variables["USE_SYSTEM_ASSIMP"] = True
+            # tc.cache_variables["USE_SYSTEM_JPEG"] = True
+            # tc.cache_variables["USE_SYSTEM_JSONCPP"] = True
 
         # # with_visualization currently only causes open3d to use it's bundled 3rd-party libs
         # the src/CMakeLists.txt file would need to be patched to disable the complete module.

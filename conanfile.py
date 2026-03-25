@@ -106,6 +106,12 @@ class Open3dConan(ConanFile):
 
         tc.cache_variables["BUILD_LIBREALSENSE"] = False
 
+        # GCC 12 has more aggressive warnings that generate false positives in
+        # bundled embree/STL code — suppress to allow build to complete.
+        gcc12_suppression_flags = ["-Wno-array-bounds", "-Wno-stringop-overflow"]
+        tc.extra_cxxflags = gcc12_suppression_flags
+        tc.extra_cflags = gcc12_suppression_flags
+
         tc.generate()
 
         deps = CMakeDeps(self)
@@ -115,6 +121,13 @@ class Open3dConan(ConanFile):
         cmake_layout(self, src_folder="source_folder")
 
     def build(self):
+        # GCC 12 introduces false-positive warnings in NanoFlann/STL code that
+        # open3d treats as errors. Add suppressions for GCC >= 12.
+        if self.settings.compiler == "gcc" and int(str(self.settings.compiler.version)) >= 12:
+            show_warning_file = os.path.join(self.source_folder, "cmake", "Open3DShowAndAbortOnWarning.cmake")
+            replace_in_file(self, show_warning_file,
+                "set(DISABLE_GNU_CLANG_INTEL_WARNINGS\n        -Wno-unused-parameter               # (many places in Open3D code)\n    )",
+                "set(DISABLE_GNU_CLANG_INTEL_WARNINGS\n        -Wno-unused-parameter               # (many places in Open3D code)\n        -Wno-array-bounds                   # GCC 12 false positives in STL/NanoFlann\n        -Wno-stringop-overflow              # GCC 12 false positives in STL\n        -Wno-stringop-overread              # GCC 12 false positives in STL\n        -Wno-free-nonheap-object            # GCC 12 false positives in NanoFlann\n    )")
         cmake = CMake(self)
         cmake.configure()
         cmake.build()

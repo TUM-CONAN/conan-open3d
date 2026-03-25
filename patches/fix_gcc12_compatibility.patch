@@ -1,0 +1,17 @@
+--- a/cmake/Open3DShowAndAbortOnWarning.cmake
++++ b/cmake/Open3DShowAndAbortOnWarning.cmake
+@@ -25,6 +25,13 @@ function(open3d_show_and_abort_on_warning target)
+     set(DISABLE_GNU_CLANG_INTEL_WARNINGS
+         -Wno-unused-parameter               # (many places in Open3D code)
+     )
++    # GCC 12+ generates new false-positive warnings in STL/NanoFlann code.
++    # These are spurious and safe to suppress.
++    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0")
++        list(APPEND DISABLE_GNU_CLANG_INTEL_WARNINGS
++            -Wno-array-bounds
++            -Wno-stringop-overflow
++            -Wno-free-nonheap-object
++        )
++    endif()
+
+     if (BUILD_CUDA_MODULE)
